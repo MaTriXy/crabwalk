@@ -24,6 +24,9 @@ export const Route = createFileRoute('/monitor/')({
   component: MonitorPageWrapper,
 })
 
+// Mobile breakpoint
+const MOBILE_BREAKPOINT = 768
+
 // Wrapper to ensure client-only rendering (useLiveQuery needs client)
 function MonitorPageWrapper() {
   const [mounted, setMounted] = useState(false)
@@ -61,12 +64,31 @@ function MonitorPage() {
   const [historicalMode, setHistoricalMode] = useState(false)
   const [selectedSession, setSelectedSession] = useState<string | null>(null)
 
+  // Sidebar collapse state - default to collapsed on mobile
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < MOBILE_BREAKPOINT
+    }
+    return false
+  })
+
   // Live queries from TanStack DB collections
   const sessionsQuery = useLiveQuery(sessionsCollection)
   const actionsQuery = useLiveQuery(actionsCollection)
 
   const sessions = sessionsQuery.data ?? []
   const actions = actionsQuery.data ?? []
+
+  // Auto-collapse sidebar on mobile resize
+  useEffect(() => {
+    const handleResize = () => {
+      const isMobile = window.innerWidth < MOBILE_BREAKPOINT
+      setSidebarCollapsed(isMobile)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   // Check connection status on mount
   useEffect(() => {
@@ -135,6 +157,10 @@ function MonitorPage() {
       loadSessions()
     }
   }
+
+  const handleToggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => !prev)
+  }, [])
 
   // Auto-connect on mount if not connected
   useEffect(() => {
@@ -249,13 +275,13 @@ function MonitorPage() {
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
-        <div className="w-72 flex shrink-0">
-          <SessionList
-            sessions={sessions}
-            selectedKey={selectedSession}
-            onSelect={setSelectedSession}
-          />
-        </div>
+        <SessionList
+          sessions={sessions}
+          selectedKey={selectedSession}
+          onSelect={setSelectedSession}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={handleToggleSidebar}
+        />
 
         {/* Graph area */}
         <div className="flex-1 relative">
