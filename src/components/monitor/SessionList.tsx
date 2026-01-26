@@ -217,27 +217,30 @@ export function SessionList({
 
       {/* Footer */}
       <div className="relative p-2.5 border-t-2 border-shell-700 bg-shell-950/50">
-        <div className="font-console text-xs text-shell-500 text-center flex items-center justify-center gap-4">
+        <div
+          className={`font-console text-xs text-shell-500 text-center flex items-center justify-center ${collapsed ? "flex-col gap-3" : "gap-4"}`}
+        >
           <a
             href="https://github.com/luccast/crabwalk"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-neon-mint hover:text-neon-mint/80 transition-colors"
+            className="inline-flex items-center gap-1 text-shell-500 hover:text-crab-500 transition-colors"
+            title="Github"
           >
-            <Github size={14} className="text-shell-500" />
-            Github
+            <Github size={14} />
+            {!collapsed && <span>Github</span>}
           </a>
 
           <a
             href="https://x.com/luccasveg"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-neon-mint hover:text-neon-mint/80 transition-colors"
+            className="inline-flex items-center gap-1 text-shell-500 hover:text-crab-500 transition-colors"
             aria-label="X"
             title="X"
           >
-            <XIcon size={14} className="text-shell-500" />
-            @luccasveg
+            <XIcon size={14} />
+            {!collapsed && <span>@luccasveg</span>}
           </a>
         </div>
       </div>

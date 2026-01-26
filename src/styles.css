@@ -132,9 +132,6 @@ body {
   display: inline-block;
   transition: color 200ms ease; /* smooth hover */
 }
-.footer-icon-x:hover {
-  color: #86512f;               /* hover color */
-}
 
 code, pre {
   font-family: var(--font-mono);
