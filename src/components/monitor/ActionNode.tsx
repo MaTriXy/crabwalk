@@ -200,15 +200,15 @@ export const ActionNode = memo(function ActionNode({
       {/* Content - markdown for both preview and expanded */}
       {(expanded ? fullContent : truncatedContent) && (
         <div className={`
-          prose prose-invert prose-sm max-w-none text-gray-300
-          prose-headings:text-gray-200 prose-headings:font-display prose-headings:text-sm prose-headings:my-1
+          prose prose-invert prose-xs max-w-none text-gray-300 text-xs
+          prose-headings:text-gray-200 prose-headings:font-display prose-headings:text-xs prose-headings:my-1
           prose-p:text-xs prose-p:leading-relaxed prose-p:my-1
           prose-code:text-neon-cyan prose-code:bg-shell-950 prose-code:px-1 prose-code:rounded prose-code:text-xs
           prose-pre:bg-shell-950 prose-pre:border prose-pre:border-shell-800 prose-pre:text-xs prose-pre:my-1
           prose-a:text-neon-lavender prose-a:no-underline hover:prose-a:underline
           prose-li:text-xs prose-li:my-0.5
           prose-strong:text-gray-200
-          ${expanded ? 'overflow-auto max-h-[400px]' : 'overflow-hidden max-h-[60px]'}
+          ${expanded ? 'overflow-auto max-h-[400px]' : 'line-clamp-3'}
         `}>
           <Markdown>{expanded ? fullContent! : truncatedContent!}</Markdown>
         </div>
