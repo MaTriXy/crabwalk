@@ -151,6 +151,7 @@ export function createConnectParams(token?: string): any {
       id: 'cli',
       version: '0.1.0',
       platform: 'linux',
+      mode: 'operator',
     },
     role: 'operator',
     scopes: ['operator.read'],
