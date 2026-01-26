@@ -10,11 +10,13 @@ import {
   type Edge,
   type NodeTypes,
   MarkerType,
+  ReactFlowProvider,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { SessionNode } from './SessionNode'
 import { ActionNode } from './ActionNode'
 import { CrabNode } from './CrabNode'
+import { ChaserCrab } from './ChaserCrab'
 import { layoutGraph } from '~/lib/graph-layout'
 import type { MonitorSession, MonitorAction } from '~/integrations/clawdbot'
 
@@ -34,7 +36,8 @@ const nodeTypes: NodeTypes = {
   crab: CrabNode as any,
 }
 
-export function ActionGraph({
+// Inner component that uses ReactFlow hooks
+function ActionGraphInner({
   sessions,
   actions,
   selectedSession,
@@ -178,6 +181,9 @@ export function ActionGraph({
   const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(layoutedEdges)
 
+  // Get node IDs for the chaser crab
+  const nodeIds = useMemo(() => nodes.map((n) => n.id), [nodes])
+
   // Update nodes when layout changes
   useEffect(() => {
     setNodes(layoutedNodes)
@@ -195,7 +201,7 @@ export function ActionGraph({
   )
 
   return (
-    <div className="w-full h-full bg-shell-950 texture-grid">
+    <div className="w-full h-full bg-shell-950 texture-grid relative">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -220,6 +226,17 @@ export function ActionGraph({
           maskColor="rgba(10, 10, 15, 0.8)"
         />
       </ReactFlow>
+      {/* Chaser crab overlay */}
+      <ChaserCrab nodeIds={nodeIds} />
     </div>
+  )
+}
+
+// Wrapper that provides ReactFlowProvider
+export function ActionGraph(props: ActionGraphProps) {
+  return (
+    <ReactFlowProvider>
+      <ActionGraphInner {...props} />
+    </ReactFlowProvider>
   )
 }
