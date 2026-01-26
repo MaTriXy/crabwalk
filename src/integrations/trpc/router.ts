@@ -90,10 +90,6 @@ const clawdbotRouter = router({
       const unsubscribe = client.onEvent((event) => {
         const parsed = parseEventFrame(event)
         if (parsed) {
-          // Log non-delta events and session keys for debugging
-          if (parsed.action?.type !== 'delta') {
-            console.log('[trpc] event:', parsed.action?.type, 'sessionKey:', parsed.action?.sessionKey)
-          }
           if (parsed.session) {
             emit.next({ type: 'session', session: parsed.session })
           }

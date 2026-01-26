@@ -22,9 +22,6 @@ export function sessionInfoToMonitor(info: SessionInfo): MonitorSession {
 }
 
 export function chatEventToAction(event: ChatEvent): MonitorAction {
-  // Debug: log event structure
-  console.log('[parser] chat event:', JSON.stringify(event, null, 2))
-
   const action: MonitorAction = {
     id: `${event.runId}-${event.seq}`,
     runId: event.runId,
@@ -40,52 +37,39 @@ export function chatEventToAction(event: ChatEvent): MonitorAction {
     } else if (typeof event.message === 'object') {
       const msg = event.message as Record<string, unknown>
 
-      // Try to extract text content from various message formats
-      if (typeof msg.content === 'string') {
+      // Extract text from content blocks: [{type: 'text', text: '...'}]
+      if (Array.isArray(msg.content)) {
+        const texts: string[] = []
+        for (const block of msg.content) {
+          if (typeof block === 'object' && block) {
+            const b = block as Record<string, unknown>
+            if (b.type === 'text' && typeof b.text === 'string') {
+              texts.push(b.text)
+            } else if (b.type === 'tool_use') {
+              action.type = 'tool_call'
+              action.toolName = String(b.name || 'unknown')
+              action.toolArgs = b.input
+            } else if (b.type === 'tool_result') {
+              action.type = 'tool_result'
+              if (typeof b.content === 'string') {
+                texts.push(b.content)
+              }
+            }
+          }
+        }
+        if (texts.length > 0) {
+          action.content = texts.join('')
+        }
+      } else if (typeof msg.content === 'string') {
         action.content = msg.content
-      } else if (Array.isArray(msg.content)) {
-        // Content blocks format: [{type: 'text', text: '...'}]
-        const textBlocks = msg.content
-          .filter((b: unknown) => typeof b === 'object' && b && (b as Record<string, unknown>).type === 'text')
-          .map((b: unknown) => (b as Record<string, unknown>).text)
-          .join('')
-        action.content = textBlocks || undefined
       } else if (typeof msg.text === 'string') {
         action.content = msg.text
-      }
-
-      // Check for tool calls
-      if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
-        const tc = msg.tool_calls[0] as Record<string, unknown>
-        if (tc) {
-          action.type = 'tool_call'
-          action.toolName = String(tc.name || 'unknown')
-          action.toolArgs = tc.arguments
-        }
-      }
-
-      // Check for tool_use in content blocks
-      if (Array.isArray(msg.content)) {
-        const toolUse = msg.content.find(
-          (b: unknown) => typeof b === 'object' && b && (b as Record<string, unknown>).type === 'tool_use'
-        ) as Record<string, unknown> | undefined
-        if (toolUse) {
-          action.type = 'tool_call'
-          action.toolName = String(toolUse.name || 'unknown')
-          action.toolArgs = toolUse.input
-          action.content = `Tool: ${action.toolName}`
-        }
       }
     }
   }
 
   if (event.errorMessage) {
     action.content = event.errorMessage
-  }
-
-  // Parent is previous seq in same run
-  if (event.seq > 0) {
-    action.parentId = `${event.runId}-${event.seq - 1}`
   }
 
   return action

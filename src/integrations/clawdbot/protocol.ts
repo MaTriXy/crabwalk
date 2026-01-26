@@ -131,13 +131,16 @@ export function parseSessionKey(key: string): {
   recipient: string
   isGroup: boolean
 } {
-  // Format: "agent:claude:whatsapp:+1234567890"
-  // Or: "agent:claude:telegram:group:12345"
+  // Format: "agent:main:discord:channel:1234567890"
+  // Or: "agent:main:telegram:group:12345"
+  // Or: "agent:main:whatsapp:+1234567890"
   const parts = key.split(':')
   const agentId = parts[1] || 'unknown'
   const platform = parts[2] || 'unknown'
-  const isGroup = parts[3] === 'group'
-  const recipient = isGroup ? parts[4] || '' : parts.slice(3).join(':')
+  // Check if 4th part indicates a type (channel, group, dm, etc)
+  const hasType = ['channel', 'group', 'dm', 'thread'].includes(parts[3] || '')
+  const isGroup = parts[3] === 'group' || parts[3] === 'channel'
+  const recipient = hasType ? parts.slice(3).join(':') : parts.slice(3).join(':')
 
   return { agentId, platform, recipient, isGroup }
 }
