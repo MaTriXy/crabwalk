@@ -158,3 +158,24 @@ export function clearCollections() {
     actionsCollection.delete(action.id)
   }
 }
+
+// Hydrate collections from server persistence
+export function hydrateFromServer(
+  sessions: MonitorSession[],
+  actions: MonitorAction[]
+) {
+  // First clear existing data
+  clearCollections()
+
+  // Insert all sessions
+  for (const session of sessions) {
+    sessionsCollection.insert(session)
+  }
+
+  // Replay actions through addAction to apply aggregation logic
+  // Sort by timestamp to ensure correct order
+  const sortedActions = [...actions].sort((a, b) => a.timestamp - b.timestamp)
+  for (const action of sortedActions) {
+    addAction(action)
+  }
+}

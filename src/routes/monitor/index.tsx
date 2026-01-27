@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useLiveQuery } from '@tanstack/react-db'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2, HardDrive } from 'lucide-react'
 import { trpc } from '~/integrations/trpc/client'
 import {
   sessionsCollection,
@@ -11,6 +11,7 @@ import {
   addAction,
   updateSessionStatus,
   clearCollections,
+  hydrateFromServer,
 } from '~/integrations/clawdbot'
 import {
   ActionGraph,
@@ -67,8 +68,17 @@ function MonitorPage() {
   const [logCount, setLogCount] = useState(0)
   const [selectedSession, setSelectedSession] = useState<string | null>(null)
 
+  // Persistence service state
+  const [persistenceEnabled, setPersistenceEnabled] = useState(false)
+  const [persistenceStartedAt, setPersistenceStartedAt] = useState<number | null>(null)
+  const [persistenceSessionCount, setPersistenceSessionCount] = useState(0)
+  const [persistenceActionCount, setPersistenceActionCount] = useState(0)
+
   // Sidebar collapse state - default to collapsed
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
+
+  // Settings panel state
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   // Live queries from TanStack DB collections
   const sessionsQuery = useLiveQuery(sessionsCollection)
@@ -78,10 +88,23 @@ function MonitorPage() {
   const actions = actionsQuery.data ?? []
 
 
-  // Check connection status on mount
+  // Check connection status and persistence on mount
   useEffect(() => {
     checkStatus()
+    checkPersistenceStatus()
   }, [])
+
+  const checkPersistenceStatus = async () => {
+    try {
+      const status = await trpc.clawdbot.persistenceStatus.query()
+      setPersistenceEnabled(status.enabled)
+      setPersistenceStartedAt(status.startedAt)
+      setPersistenceSessionCount(status.sessionCount)
+      setPersistenceActionCount(status.actionCount)
+    } catch {
+      // ignore
+    }
+  }
 
   const checkStatus = async () => {
     try {
@@ -101,6 +124,8 @@ function MonitorPage() {
         setConnected(true)
         setRetryCount(0)
         setConnecting(false)
+        // Hydrate from persistence if enabled
+        await hydrateFromPersistence()
         await loadSessions()
         return
       }
@@ -112,6 +137,23 @@ function MonitorPage() {
       setTimeout(() => handleConnect(retry + 1), RETRY_DELAY)
     } else {
       setConnecting(false)
+    }
+  }
+
+  const hydrateFromPersistence = async () => {
+    try {
+      const status = await trpc.clawdbot.persistenceStatus.query()
+      if (status.sessionCount > 0 || status.actionCount > 0) {
+        const data = await trpc.clawdbot.persistenceHydrate.query()
+        hydrateFromServer(data.sessions, data.actions)
+        console.log(`[monitor] hydrated ${data.sessions.length} sessions, ${data.actions.length} actions`)
+      }
+      setPersistenceEnabled(status.enabled)
+      setPersistenceStartedAt(status.startedAt)
+      setPersistenceSessionCount(status.sessionCount)
+      setPersistenceActionCount(status.actionCount)
+    } catch (e) {
+      console.error('Failed to hydrate:', e)
     }
   }
 
@@ -196,6 +238,37 @@ function MonitorPage() {
     }
   }
 
+  const handlePersistenceStart = async () => {
+    try {
+      const result = await trpc.clawdbot.persistenceStart.mutate()
+      setPersistenceEnabled(result.enabled)
+      setPersistenceStartedAt(result.startedAt)
+    } catch (e) {
+      console.error('Failed to start persistence:', e)
+    }
+  }
+
+  const handlePersistenceStop = async () => {
+    try {
+      const result = await trpc.clawdbot.persistenceStop.mutate()
+      setPersistenceEnabled(result.enabled)
+      setPersistenceStartedAt(null)
+    } catch (e) {
+      console.error('Failed to stop persistence:', e)
+    }
+  }
+
+  const handlePersistenceClear = async () => {
+    try {
+      await trpc.clawdbot.persistenceClear.mutate()
+      setPersistenceSessionCount(0)
+      setPersistenceActionCount(0)
+      clearCollections()
+    } catch (e) {
+      console.error('Failed to clear persistence:', e)
+    }
+  }
+
   // Poll log count while collecting
   useEffect(() => {
     if (!logCollection) return
@@ -209,6 +282,22 @@ function MonitorPage() {
     }, 2000)
     return () => clearInterval(interval)
   }, [logCollection])
+
+  // Poll persistence status
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const status = await trpc.clawdbot.persistenceStatus.query()
+        setPersistenceEnabled(status.enabled)
+        setPersistenceStartedAt(status.startedAt)
+        setPersistenceSessionCount(status.sessionCount)
+        setPersistenceActionCount(status.actionCount)
+      } catch {
+        // ignore
+      }
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [])
 
   const handleToggleSidebar = useCallback(() => {
     setSidebarCollapsed((prev) => !prev)
@@ -294,6 +383,25 @@ function MonitorPage() {
             </motion.div>
           )}
 
+          {/* Persistence indicator */}
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${
+              persistenceEnabled
+                ? 'bg-neon-mint/10 hover:bg-neon-mint/20'
+                : 'bg-shell-800/50 hover:bg-shell-700'
+            }`}
+            title={persistenceEnabled ? 'Background service running' : 'Background service stopped'}
+          >
+            <HardDrive
+              size={14}
+              className={persistenceEnabled ? 'text-neon-mint' : 'text-shell-500'}
+            />
+            {persistenceEnabled && (
+              <span className="w-1.5 h-1.5 rounded-full bg-neon-mint animate-pulse" />
+            )}
+          </button>
+
           {/* Stats display */}
           <div className="hidden sm:flex items-center gap-3 px-3 py-1.5 bg-shell-800/50 rounded-lg">
             <div className="flex items-center gap-2">
@@ -313,6 +421,12 @@ function MonitorPage() {
             debugMode={debugMode}
             logCollection={logCollection}
             logCount={logCount}
+            persistenceEnabled={persistenceEnabled}
+            persistenceStartedAt={persistenceStartedAt}
+            persistenceSessionCount={persistenceSessionCount}
+            persistenceActionCount={persistenceActionCount}
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
             onHistoricalModeChange={handleHistoricalModeChange}
             onDebugModeChange={handleDebugModeChange}
             onLogCollectionChange={handleLogCollectionChange}
@@ -321,6 +435,9 @@ function MonitorPage() {
             onConnect={handleConnect}
             onDisconnect={handleDisconnect}
             onRefresh={handleRefresh}
+            onPersistenceStart={handlePersistenceStart}
+            onPersistenceStop={handlePersistenceStop}
+            onPersistenceClear={handlePersistenceClear}
           />
         </div>
       </header>
