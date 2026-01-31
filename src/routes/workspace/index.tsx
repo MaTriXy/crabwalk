@@ -1,0 +1,417 @@
+import { useState, useEffect, useCallback } from 'react'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  ArrowLeft,
+  FolderOpen,
+  RefreshCw,
+  AlertCircle,
+  PanelLeft,
+  PanelLeftClose,
+} from 'lucide-react'
+import { trpc } from '~/integrations/trpc/client'
+import { FileTree, MarkdownViewer } from '~/components/workspace'
+import { CrabIdleAnimation } from '~/components/ani'
+import type { DirectoryEntry } from '~/lib/workspace-fs'
+
+export const Route = createFileRoute('/workspace/')({
+  component: WorkspacePageWrapper,
+})
+
+// Wrapper to ensure client-only rendering
+function WorkspacePageWrapper() {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
+  if (!mounted) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-shell-950 text-white">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex flex-col items-center gap-4"
+        >
+          <div className="crab-icon-glow">
+            <CrabIdleAnimation className="w-16 h-16" />
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="font-display text-sm text-gray-400 tracking-wide uppercase">
+              Loading Workspace...
+            </span>
+          </div>
+        </motion.div>
+      </div>
+    )
+  }
+
+  return <WorkspacePage />
+}
+
+function WorkspacePage() {
+  // Workspace path state
+  const [workspacePath, setWorkspacePath] = useState('')
+  const [workspacePathInput, setWorkspacePathInput] = useState('')
+  const [pathError, setPathError] = useState<string | null>(null)
+  const [pathValid, setPathValid] = useState(false)
+
+  // File tree state
+  const [loading, setLoading] = useState(false)
+  const [pathCache, setPathCache] = useState<Map<string, DirectoryEntry[]>>(new Map())
+
+  // Selected file state
+  const [selectedPath, setSelectedPath] = useState<string | null>(null)
+  const [selectedFileContent, setSelectedFileContent] = useState('')
+  const [selectedFileName, setSelectedFileName] = useState('')
+  const [selectedFileSize, setSelectedFileSize] = useState<number | undefined>()
+  const [selectedFileModified, setSelectedFileModified] = useState<Date | undefined>()
+  const [fileError, setFileError] = useState<string | undefined>()
+
+  // Sidebar collapse state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  // Root entries for FileTree
+  const rootEntries = workspacePath && pathValid ? (pathCache.get(workspacePath) || []) : []
+
+  // Load saved path or default on mount
+  useEffect(() => {
+    const savedPath = localStorage.getItem('crabcrawl:workspacePath')
+    if (savedPath) {
+      setWorkspacePathInput(savedPath)
+      // Auto-validate saved path
+      validatePathAndSet(savedPath)
+    } else {
+      loadDefaultPath()
+    }
+  }, [])
+
+  // Load entries when workspace path changes and is valid
+  useEffect(() => {
+    if (workspacePath && pathValid) {
+      loadDirectory(workspacePath)
+    }
+  }, [workspacePath, pathValid])
+
+  const loadDefaultPath = async () => {
+    try {
+      const result = await trpc.workspace.getDefaultPath.query()
+      setWorkspacePathInput(result.path)
+      // Don't auto-set workspace path - let user confirm
+    } catch (error) {
+      console.error('Failed to get default path:', error)
+    }
+  }
+
+  const validatePathAndSet = async (pathToValidate: string) => {
+    setPathError(null)
+    setPathValid(false)
+
+    if (!pathToValidate.trim()) {
+      setPathError('Please enter a path')
+      return
+    }
+
+    try {
+      const result = await trpc.workspace.validatePath.query({
+        path: pathToValidate,
+      })
+
+      if (result.valid) {
+        setWorkspacePath(pathToValidate)
+        setPathValid(true)
+        // Persist to localStorage
+        localStorage.setItem('crabcrawl:workspacePath', pathToValidate)
+        // Clear cache when path changes
+        setPathCache(new Map())
+        setSelectedPath(null)
+        setSelectedFileContent('')
+        setSelectedFileName('')
+      } else {
+        setPathError(result.error || 'Invalid path')
+      }
+    } catch (error) {
+      setPathError(error instanceof Error ? error.message : 'Failed to validate path')
+    }
+  }
+
+  const validateAndSetPath = async () => {
+    await validatePathAndSet(workspacePathInput)
+  }
+
+  const loadDirectory = async (dirPath: string): Promise<DirectoryEntry[]> => {
+    // Check cache first
+    if (pathCache.has(dirPath)) {
+      return pathCache.get(dirPath)!
+    }
+
+    setLoading(true)
+    try {
+      const result = await trpc.workspace.listDirectory.query({
+        workspaceRoot: workspacePath,
+        path: dirPath,
+      })
+
+      if (result.error) {
+        throw new Error(result.error)
+      }
+
+      // Update cache
+      setPathCache((prev) => new Map(prev).set(dirPath, result.entries))
+      return result.entries
+    } catch (error) {
+      console.error('Failed to load directory:', error)
+      return []
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadFile = useCallback(
+    async (filePath: string) => {
+      setFileError(undefined)
+      try {
+        const result = await trpc.workspace.readFile.query({
+          workspaceRoot: workspacePath,
+          path: filePath,
+        })
+
+        if (result.error) {
+          setFileError(result.error)
+          setSelectedFileContent('')
+          setSelectedFileName('')
+          setSelectedFileSize(undefined)
+          setSelectedFileModified(undefined)
+        } else {
+          setSelectedFileContent(result.content)
+          setSelectedFileName(result.name)
+          // Get file metadata from the parent directory entry if available
+          const parentDir = pathCache.get(selectedPath?.substring(0, selectedPath.lastIndexOf('/')) || workspacePath)
+          const fileEntry = parentDir?.find(e => e.path === filePath)
+          setSelectedFileSize(fileEntry?.size)
+          setSelectedFileModified(fileEntry?.modifiedAt)
+        }
+      } catch (error) {
+        setFileError(error instanceof Error ? error.message : 'Failed to read file')
+        setSelectedFileContent('')
+        setSelectedFileName('')
+        setSelectedFileSize(undefined)
+        setSelectedFileModified(undefined)
+      }
+    },
+    [workspacePath, pathCache, selectedPath]
+  )
+
+  const handleSelect = useCallback(
+    async (path: string, type: 'file' | 'directory') => {
+      if (type === 'file') {
+        setSelectedPath(path)
+        await loadFile(path)
+      }
+      // Note: directory expansion is handled by FileTree component internally
+    },
+    [loadFile]
+  )
+
+  // Handle directory loading for FileTree
+  const handleLoadDirectory = useCallback(
+    async (dirPath: string): Promise<DirectoryEntry[]> => {
+      return loadDirectory(dirPath)
+    },
+    [workspacePath]
+  )
+
+  const handleRefresh = useCallback(async () => {
+    if (!workspacePath || !pathValid) return
+
+    // Clear cache and reload
+    setPathCache(new Map())
+    await loadDirectory(workspacePath)
+
+    // Reload selected file if any
+    if (selectedPath) {
+      await loadFile(selectedPath)
+    }
+  }, [workspacePath, pathValid, selectedPath])
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      validateAndSetPath()
+    }
+  }
+
+
+
+  return (
+    <div className="h-screen flex flex-col bg-shell-950 text-white overflow-hidden">
+      {/* Header */}
+      <header className="flex items-center justify-between px-4 py-3 bg-shell-900 relative">
+        {/* Gradient accent */}
+        <div className="absolute inset-0 bg-linear-to-r from-crab-950/20 via-transparent to-transparent pointer-events-none" />
+
+        <div className="relative flex items-center gap-4">
+          <Link
+            to="/"
+            className="p-2 hover:bg-shell-800 rounded-lg transition-all border border-transparent hover:border-shell-600 group"
+          >
+            <ArrowLeft size={18} className="text-gray-400 group-hover:text-crab-400" />
+          </Link>
+
+          {/* Navigation tabs */}
+          <div className="flex items-center gap-1">
+            {/* Monitor tab - inactive */}
+            <Link
+              to="/monitor"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-shell-800 transition-all border border-transparent hover:border-shell-600"
+            >
+              <span className="font-arcade text-xs text-gray-500 tracking-wider">
+                MONITOR
+              </span>
+            </Link>
+
+            {/* Workspace tab - active */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-crab-900/30 border border-crab-700/30">
+              <div className="crab-icon-glow">
+                <CrabIdleAnimation className="w-5 h-5" />
+              </div>
+              <span className="font-arcade text-xs text-crab-400 glow-red tracking-wider">
+                WORKSPACE
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative flex items-center gap-3 flex-1 max-w-2xl mx-4">
+          {/* Path input */}
+          <div className="flex-1 flex items-center gap-2">
+            <FolderOpen size={16} className="text-shell-500 flex-shrink-0" />
+            <input
+              type="text"
+              value={workspacePathInput}
+              onChange={(e) => setWorkspacePathInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Enter workspace path..."
+              className="flex-1 bg-shell-800 border border-shell-700 rounded-lg px-3 py-1.5 text-sm font-console text-gray-200 placeholder-shell-500 focus:outline-none focus:border-crab-500 focus:ring-1 focus:ring-crab-500/20"
+            />
+            <button
+              onClick={validateAndSetPath}
+              className="px-3 py-1.5 bg-crab-600 hover:bg-crab-500 text-white text-sm font-display rounded-lg transition-colors"
+            >
+              Open
+            </button>
+          </div>
+
+          {pathError && (
+            <div className="absolute top-full left-0 right-0 mt-2 px-3 py-2 bg-crab-900/90 border border-crab-700 rounded-lg flex items-center gap-2 z-50">
+              <AlertCircle size={14} className="text-crab-400" />
+              <span className="text-xs text-crab-200 font-console">{pathError}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="relative flex items-center gap-3">
+          {/* Refresh button */}
+          <button
+            onClick={handleRefresh}
+            disabled={!pathValid || loading}
+            className="p-2 hover:bg-shell-800 rounded-lg transition-all border border-transparent hover:border-shell-600 disabled:opacity-50 disabled:cursor-not-allowed group"
+            title="Refresh"
+          >
+            <RefreshCw
+              size={18}
+              className={`text-gray-400 group-hover:text-crab-400 ${loading ? 'animate-spin' : ''}`}
+            />
+          </button>
+        </div>
+      </header>
+
+      {/* Main content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Sidebar */}
+        <AnimatePresence initial={false}>
+          {!sidebarCollapsed && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 320, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              className="border-r border-shell-800 bg-shell-900/50 flex flex-col overflow-hidden"
+            >
+              {/* Sidebar header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-shell-800">
+                <span className="font-display text-xs text-shell-500 uppercase tracking-wider">
+                  Files
+                </span>
+                <div className="flex items-center gap-2">
+                  {loading && (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    >
+                      <RefreshCw size={14} className="text-shell-500" />
+                    </motion.div>
+                  )}
+                  <button
+                    onClick={() => setSidebarCollapsed(true)}
+                    className="p-1 hover:bg-shell-800 rounded transition-colors"
+                    title="Hide sidebar"
+                  >
+                    <PanelLeftClose size={14} className="text-shell-500 hover:text-crab-400" />
+                  </button>
+                </div>
+              </div>
+
+              {/* File tree */}
+              <div className="flex-1 overflow-auto py-2">
+                {pathValid ? (
+                  <FileTree
+                    entries={rootEntries}
+                    selectedPath={selectedPath}
+                    onSelect={handleSelect}
+                    onLoadDirectory={handleLoadDirectory}
+                  />
+                ) : (
+                  <div className="p-4 text-center">
+                    <p className="font-console text-xs text-shell-500">
+                      Enter a workspace path to browse files
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Sidebar footer */}
+              {pathValid && (
+                <div className="px-4 py-2 border-t border-shell-800">
+                  <p className="font-console text-[10px] text-shell-600 truncate">
+                    {workspacePath}
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Main content area */}
+        <div className="flex-1 relative bg-shell-950">
+          {/* Floating sidebar toggle when collapsed */}
+          {sidebarCollapsed && (
+            <motion.button
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              onClick={() => setSidebarCollapsed(false)}
+              className="absolute left-4 top-4 z-10 p-2 bg-shell-800/80 hover:bg-shell-700 rounded-lg border border-shell-700 transition-all"
+              title="Show sidebar"
+            >
+              <PanelLeft size={18} className="text-gray-400 hover:text-crab-400" />
+            </motion.button>
+          )}
+          <MarkdownViewer
+            content={selectedFileContent}
+            fileName={selectedFileName}
+            fileSize={selectedFileSize}
+            fileModified={selectedFileModified}
+            error={fileError}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}

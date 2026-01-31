@@ -25,6 +25,7 @@ docker run -d \
   -p 3000:3000 \
   -e CLAWDBOT_API_TOKEN=your-token \
   -e CLAWDBOT_URL=ws://host.docker.internal:18789 \
+  -v ~/.openclaw/workspace:/root/.openclaw/workspace \
   ghcr.io/luccast/crabwalk:latest
 ```
 
@@ -33,11 +34,37 @@ docker run -d \
 > If you're running Moltbot with `bind: loopback` and `tailscale serve` for secure tailnet-only access, you'll need to run the crabwalk container with host networking - replace `p:3000:3000` with `--network host`
 > This allows the container to reach 127.0.0.1:18789 while maintaining the security benefits of loopback-only binding.
 
+#### Workspace Access
+
+The workspace explorer needs access to your local files. By default, it looks for files at `~/.openclaw/workspace`. In Docker, mount your host workspace to the same path in the container:
+
+```bash
+# Default workspace path (recommended)
+docker run -d \
+  -p 3000:3000 \
+  -e CLAWDBOT_API_TOKEN=your-token \
+  -v ~/.openclaw/workspace:/root/.openclaw/workspace \
+  ghcr.io/luccast/crabwalk:latest
+
+# Custom workspace path on host
+docker run -d \
+  -p 3000:3000 \
+  -e CLAWDBOT_API_TOKEN=your-token \
+  -v /path/to/your/workspace:/root/.openclaw/workspace \
+  ghcr.io/luccast/crabwalk:latest
+```
+
 Or with docker-compose:
 
 ```bash
 curl -O https://raw.githubusercontent.com/luccast/crabwalk/master/docker-compose.yml
-CLAWDBOT_API_TOKEN=your-token CLAWDBOT_URL=ws://host.docker.internal:18789 docker-compose up -d
+CLAWDBOT_API_TOKEN=your-token docker-compose up -d
+```
+
+To use a custom workspace path with docker-compose, set the `WORKSPACE_HOST_PATH` environment variable:
+
+```bash
+WORKSPACE_HOST_PATH=/path/to/your/workspace CLAWDBOT_API_TOKEN=your-token docker-compose up -d
 ```
 
 > If gateway is `bind: loopback` only, you will need to edit the `docker-compose.yml` to add `network_mode: host`

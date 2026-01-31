@@ -13,6 +13,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOST=0.0.0.0
+ENV HOME=/root
+
+# Create workspace directory for volume mounting
+RUN mkdir -p /root/.openclaw/workspace
 
 COPY --from=builder /app/.output ./.output
 

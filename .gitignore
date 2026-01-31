@@ -37,3 +37,6 @@ documents/*
 
 # Persistence data
 data/
+
+# coding agent plans
+plans/
