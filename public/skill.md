@@ -30,12 +30,25 @@ if ! echo $PATH | grep -q "$HOME/.local/bin"; then
   [ -f ~/.zshrc ] && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
   export PATH="$HOME/.local/bin:$PATH"
 fi
+
+# Install qrencode for QR code display (optional)
+if ! command -v qrencode &>/dev/null; then
+  if command -v pacman &>/dev/null; then
+    sudo pacman -S --noconfirm qrencode 2>/dev/null || true
+  elif command -v apt &>/dev/null; then
+    sudo apt install -y qrencode 2>/dev/null || true
+  elif command -v brew &>/dev/null; then
+    brew install qrencode 2>/dev/null || true
+  elif command -v dnf &>/dev/null; then
+    sudo dnf install -y qrencode 2>/dev/null || true
+  fi
+fi
 ```
 
 ## One-Liner Install
 
 ```bash
-VERSION=$(curl -s https://api.github.com/repos/luccast/crabwalk/releases/latest | grep '"tag_name"' | cut -d'"' -f4) && mkdir -p ~/.crabwalk ~/.local/bin && curl -sL "https://github.com/luccast/crabwalk/releases/download/${VERSION}/crabwalk-${VERSION}.tar.gz" | tar -xz -C ~/.crabwalk && cp ~/.crabwalk/bin/crabwalk ~/.local/bin/ && chmod +x ~/.local/bin/crabwalk && (echo $PATH | grep -q "$HOME/.local/bin" || ([ -f ~/.bashrc ] && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc; [ -f ~/.zshrc ] && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc; export PATH="$HOME/.local/bin:$PATH")) && echo "🦀 Crabwalk ${VERSION} installed"
+VERSION=$(curl -s https://api.github.com/repos/luccast/crabwalk/releases/latest | grep '"tag_name"' | cut -d'"' -f4) && mkdir -p ~/.crabwalk ~/.local/bin && curl -sL "https://github.com/luccast/crabwalk/releases/download/${VERSION}/crabwalk-${VERSION}.tar.gz" | tar -xz -C ~/.crabwalk && cp ~/.crabwalk/bin/crabwalk ~/.local/bin/ && chmod +x ~/.local/bin/crabwalk && (echo $PATH | grep -q "$HOME/.local/bin" || ([ -f ~/.bashrc ] && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc; [ -f ~/.zshrc ] && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc; export PATH="$HOME/.local/bin:$PATH")) && (command -v qrencode &>/dev/null || (command -v pacman &>/dev/null && sudo pacman -S --noconfirm qrencode || command -v apt &>/dev/null && sudo apt install -y qrencode || command -v brew &>/dev/null && brew install qrencode || command -v dnf &>/dev/null && sudo dnf install -y qrencode) 2>/dev/null || true) && echo "🦀 Crabwalk ${VERSION} installed"
 ```
 
 ## CLI Usage
@@ -73,6 +86,23 @@ Options:
 
 - Node.js 20+
 - OpenClaw gateway running on `ws://127.0.0.1:18789`
+- `qrencode` (optional, for QR code display)
+
+### Install qrencode (optional)
+
+```bash
+# Arch/Manjaro
+sudo pacman -S qrencode
+
+# Debian/Ubuntu
+sudo apt install qrencode
+
+# macOS
+brew install qrencode
+
+# Fedora
+sudo dnf install qrencode
+```
 
 ## Check for Updates
 
