@@ -128,11 +128,13 @@ function WorkspacePage() {
         path: pathToValidate,
       })
 
-      if (result.valid) {
-        setWorkspacePath(pathToValidate)
+      if (result.valid && result.expandedPath) {
+        // Use the expanded path (e.g., ~/Documents -> /home/user/Documents)
+        setWorkspacePath(result.expandedPath)
+        setWorkspacePathInput(result.expandedPath)
         setPathValid(true)
         // Persist to localStorage
-        localStorage.setItem('crabcrawl:workspacePath', pathToValidate)
+        localStorage.setItem('crabcrawl:workspacePath', result.expandedPath)
         // Clear cache when path changes
         setPathCache(new Map())
         setSelectedPath(null)

@@ -16,6 +16,7 @@ import {
   readFile,
   pathExists,
   getDefaultWorkspacePath,
+  expandTilde,
   type DirectoryEntry,
   type FileContent,
 } from '~/lib/workspace-fs'
@@ -229,13 +230,14 @@ const workspaceRouter = router({
   // Validate workspace path exists
   validatePath: publicProcedure
     .input(z.object({ path: z.string() }))
-    .query(async ({ input }): Promise<{ valid: boolean; error?: string }> => {
+    .query(async ({ input }): Promise<{ valid: boolean; error?: string; expandedPath?: string }> => {
       try {
-        const exists = await pathExists(input.path)
+        const expandedPath = expandTilde(input.path)
+        const exists = await pathExists(expandedPath)
         if (!exists) {
           return { valid: false, error: 'Path does not exist' }
         }
-        return { valid: true }
+        return { valid: true, expandedPath }
       } catch (error) {
         return {
           valid: false,
@@ -254,7 +256,9 @@ const workspaceRouter = router({
     .input(z.object({ workspaceRoot: z.string(), path: z.string() }))
     .query(async ({ input }): Promise<{ entries: DirectoryEntry[]; error?: string }> => {
       try {
-        const entries = await listDirectory(input.workspaceRoot, input.path)
+        const expandedRoot = expandTilde(input.workspaceRoot)
+        const expandedPath = expandTilde(input.path)
+        const entries = await listDirectory(expandedRoot, expandedPath)
         return { entries }
       } catch (error) {
         return {
@@ -269,7 +273,9 @@ const workspaceRouter = router({
     .input(z.object({ workspaceRoot: z.string(), path: z.string() }))
     .query(async ({ input }): Promise<FileContent & { error?: string }> => {
       try {
-        const result = await readFile(input.workspaceRoot, input.path)
+        const expandedRoot = expandTilde(input.workspaceRoot)
+        const expandedPath = expandTilde(input.path)
+        const result = await readFile(expandedRoot, expandedPath)
         return result
       } catch (error) {
         return {

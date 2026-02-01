@@ -1,4 +1,5 @@
 import { promises as fs } from 'fs'
+import os from 'os'
 import path from 'path'
 
 /**
@@ -158,7 +159,7 @@ export async function pathExists(targetPath: string): Promise<boolean> {
  * Returns the user's home directory + .openclaw/workspace
  */
 export function getDefaultWorkspacePath(): string {
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '/tmp'
+  const homeDir = os.homedir()
   return path.join(homeDir, '.openclaw', 'workspace')
 }
 
@@ -168,6 +169,31 @@ export function getDefaultWorkspacePath(): string {
 export function isMarkdownFile(filename: string): boolean {
   const ext = path.extname(filename).toLowerCase()
   return ext === '.md' || ext === '.markdown'
+}
+
+/**
+ * Expands tilde (~) to the user's home directory on Unix-based systems
+ * Handles both "~/" prefix and standalone "~" path
+ */
+export function expandTilde(inputPath: string): string {
+  // Only expand if path starts with ~
+  if (!inputPath.startsWith('~')) {
+    return inputPath
+  }
+
+  // Get home directory using Node.js built-in (handles cross-platform)
+  // Returns /root in containerized environments if HOME is not set
+  const homeDir = os.homedir()
+
+  // Handle "~/" prefix or standalone "~"
+  if (inputPath === '~' || inputPath.startsWith('~/')) {
+    return path.join(homeDir, inputPath.slice(1))
+  }
+
+  // Path starts with ~ but not followed by / (e.g., ~username)
+  // This is a valid Unix path referring to another user's home
+  // Return as-is and let the system handle it
+  return inputPath
 }
 
 /**
