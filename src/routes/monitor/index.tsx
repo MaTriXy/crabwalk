@@ -4,6 +4,7 @@ import { useLiveQuery } from '@tanstack/react-db'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Loader2, HardDrive, Trash2 } from 'lucide-react'
 import { trpc } from '~/integrations/trpc/client'
+import { NavTabs } from '~/components/navigation'
 import {
   sessionsCollection,
   actionsCollection,
@@ -21,8 +22,11 @@ import {
   SessionList,
   SettingsPanel,
   StatusIndicator,
+  MobileSessionDrawer,
+  MobileMonitorToolbar,
 } from '~/components/monitor'
 import { CrabIdleAnimation } from '~/components/ani'
+import { useIsMobile } from '~/hooks/useIsMobile'
 
 export const Route = createFileRoute('/monitor/')({
   component: MonitorPageWrapper,
@@ -82,6 +86,10 @@ function MonitorPage() {
 
   // Settings panel state
   const [settingsOpen, setSettingsOpen] = useState(false)
+
+  // Mobile state
+  const isMobile = useIsMobile()
+  const [sessionDrawerOpen, setSessionDrawerOpen] = useState(false)
 
   // Live queries from TanStack DB collections
   const sessionsQuery = useLiveQuery(sessionsCollection)
@@ -379,27 +387,11 @@ function MonitorPage() {
           </Link>
 
           {/* Navigation tabs */}
-          <div className="flex items-center gap-1">
-            {/* Monitor tab - active */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-crab-900/30 border border-crab-700/30">
-              <div className="crab-icon-glow">
-                <CrabIdleAnimation className="w-5 h-5" />
-              </div>
-              <span className="font-arcade text-xs text-crab-400 glow-red tracking-wider">
-                MONITOR
-              </span>
-              <StatusIndicator status={connecting ? 'thinking' : connected ? 'active' : 'idle'} />
-            </div>
+          <NavTabs />
 
-            {/* Workspace tab - inactive */}
-            <Link
-              to="/workspace"
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-shell-800 transition-all border border-transparent hover:border-shell-600"
-            >
-              <span className="font-arcade text-xs text-gray-500 tracking-wider">
-                WORKSPACE
-              </span>
-            </Link>
+          {/* Connection status */}
+          <div className="flex items-center gap-2 ml-2">
+            <StatusIndicator status={connecting ? 'thinking' : connected ? 'active' : 'idle'} />
           </div>
         </div>
 
@@ -495,17 +487,19 @@ function MonitorPage() {
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <SessionList
-          sessions={sessions}
-          selectedKey={selectedSession}
-          onSelect={setSelectedSession}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={handleToggleSidebar}
-        />
+        {/* Sidebar - desktop only */}
+        {!isMobile && (
+          <SessionList
+            sessions={sessions}
+            selectedKey={selectedSession}
+            onSelect={setSelectedSession}
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={handleToggleSidebar}
+          />
+        )}
 
         {/* Graph area */}
-        <div className="flex-1 relative">
+        <div className={`flex-1 relative ${isMobile ? 'pb-20' : ''}`}>
           <ActionGraph
             sessions={sessions}
             actions={actions}
@@ -515,6 +509,29 @@ function MonitorPage() {
           />
         </div>
       </div>
+
+      {/* Mobile components */}
+      {isMobile && (
+        <>
+          <MobileMonitorToolbar
+            onOpenDrawer={() => setSessionDrawerOpen(true)}
+            onOpenSettings={() => setSettingsOpen(true)}
+            connected={connected}
+            connecting={connecting}
+            sessionCount={sessions.length}
+            actionCount={actions.length}
+            completedCount={completedCount}
+            onClearCompleted={handleClearCompleted}
+          />
+          <MobileSessionDrawer
+            open={sessionDrawerOpen}
+            onClose={() => setSessionDrawerOpen(false)}
+            sessions={sessions}
+            selectedKey={selectedSession}
+            onSelect={setSelectedSession}
+          />
+        </>
+      )}
     </div>
   )
 }
