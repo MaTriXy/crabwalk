@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { motion } from 'framer-motion'
-import { Github } from 'lucide-react'
+import { Github, FolderOpen } from 'lucide-react'
 import { version } from '../../package.json'
 import { CrabIdleAnimation, CrabJumpAnimation, CrabAttackAnimation } from '~/components/ani'
 
@@ -135,17 +135,25 @@ function Home() {
           >
             <span className="text-crab-600">&gt;</span> Real-time AI agent activity monitoring<br />
             <span className="text-crab-600">&gt;</span> Session tracking & action visualization<br />
-            <span className="text-crab-600">&gt;</span> Multi-platform gateway interface
+            <span className="text-crab-600">&gt;</span> Workspace file browser & markdown viewer
           </motion.div>
 
-          {/* CTA Button */}
+          {/* CTA Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.5 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
             <Link to="/monitor" className="btn-retro inline-block rounded-lg font-black!">
               Launch Monitor
+            </Link>
+            <Link
+              to="/workspace"
+              className="btn-retro btn-retro-secondary inline-flex items-center gap-2 rounded-lg font-black!"
+            >
+              <FolderOpen size={18} />
+              Explore Workspace
             </Link>
           </motion.div>
 

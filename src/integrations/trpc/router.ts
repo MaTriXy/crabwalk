@@ -11,6 +11,15 @@ import {
   type MonitorAction,
   type MonitorExecEvent,
 } from '~/integrations/clawdbot'
+import {
+  listDirectory,
+  readFile,
+  pathExists,
+  getDefaultWorkspacePath,
+  expandTilde,
+  type DirectoryEntry,
+  type FileContent,
+} from '~/lib/workspace-fs'
 
 // Server-side debug mode state
 let debugMode = false
@@ -216,6 +225,69 @@ const clawdbotRouter = router({
   }),
 })
 
+// Workspace router for file system operations
+const workspaceRouter = router({
+  // Validate workspace path exists
+  validatePath: publicProcedure
+    .input(z.object({ path: z.string() }))
+    .query(async ({ input }): Promise<{ valid: boolean; error?: string; expandedPath?: string }> => {
+      try {
+        const expandedPath = expandTilde(input.path)
+        const exists = await pathExists(expandedPath)
+        if (!exists) {
+          return { valid: false, error: 'Path does not exist' }
+        }
+        return { valid: true, expandedPath }
+      } catch (error) {
+        return {
+          valid: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        }
+      }
+    }),
+
+  // Get default workspace path
+  getDefaultPath: publicProcedure.query((): { path: string } => {
+    return { path: getDefaultWorkspacePath() }
+  }),
+
+  // List directory contents
+  listDirectory: publicProcedure
+    .input(z.object({ workspaceRoot: z.string(), path: z.string() }))
+    .query(async ({ input }): Promise<{ entries: DirectoryEntry[]; error?: string }> => {
+      try {
+        const expandedRoot = expandTilde(input.workspaceRoot)
+        const expandedPath = expandTilde(input.path)
+        const entries = await listDirectory(expandedRoot, expandedPath)
+        return { entries }
+      } catch (error) {
+        return {
+          entries: [],
+          error: error instanceof Error ? error.message : 'Failed to list directory',
+        }
+      }
+    }),
+
+  // Read file contents
+  readFile: publicProcedure
+    .input(z.object({ workspaceRoot: z.string(), path: z.string() }))
+    .query(async ({ input }): Promise<FileContent & { error?: string }> => {
+      try {
+        const expandedRoot = expandTilde(input.workspaceRoot)
+        const expandedPath = expandTilde(input.path)
+        const result = await readFile(expandedRoot, expandedPath)
+        return result
+      } catch (error) {
+        return {
+          content: '',
+          path: input.path,
+          name: '',
+          error: error instanceof Error ? error.message : 'Failed to read file',
+        }
+      }
+    }),
+})
+
 export const appRouter = router({
   hello: publicProcedure
     .input(z.object({ name: z.string().optional() }))
@@ -232,6 +304,7 @@ export const appRouter = router({
   }),
 
   clawdbot: clawdbotRouter,
+  workspace: workspaceRouter,
 })
 
 export type AppRouter = typeof appRouter
