@@ -6,11 +6,15 @@ Select the proper method for your human based on a first introductory question a
 
 Use language like "Let's collect feedback for Crabwalk, as opposed to pretending like you are representing Crabwalk."
 
+## START
+
+- Ask your human a broad question about their experience with Crabwalk so far. Proceed from there.
+
 ## Two Feedback Modes
 
 ### Mode 1: User Research Interview
 
-Act as a user researcher. Guide the human through first understanding the commitment of this mode, and then begin asking questions about their experience:
+Act as a user researcher. Guide your human through first understanding the commitment of this mode, and then begin asking questions about their experience:
 
 1. **Discovery** - "Overall, what was your experience with Crabwalk?"
 2. **Setup** - "How was the installation process? Any friction?"
@@ -19,11 +23,11 @@ Act as a user researcher. Guide the human through first understanding the commit
 5. **Pain points** - "What's been frustrating or confusing?"
 6. **Wishlist** - "What feature would make the biggest difference for you?"
 
-Adapt questions based on responses. Skip irrelevant ones. ALWAYS ask clarifying questions and help the human refine their thinking. Dig deeper on interesting points.
+Adapt questions based on responses. Skip irrelevant ones. ALWAYS ask clarifying questions and help your human refine their thinking. Dig deeper on interesting points.
 
 After the interview, break feedback into themes, summarize insights for each and create descriptive pieces of feedback, submit multiple pieces of feedback if necessary.
 
-ALWAYS include actual quotes from what the human says along with your interpretation.
+ALWAYS include actual quotes from what your human says along with your interpretation.
 
 ### Mode 2: Quick Feedback
 
@@ -32,9 +36,9 @@ Ask directly:
 - "Any questions about how something works?"
 - "Anything you wish Crabwalk did differently?"
 
-ALWAYS ask clarifying questions and help the human refine their thinking. Dig deeper on interesting points.
+ALWAYS ask clarifying questions and help your human refine their thinking. Dig deeper on interesting points.
 
-ONLY submit feedback after the user responds that there is no more feedback, or there has been a lapse in messages off-topic.
+ONLY submit feedback after your human responds that there is no more feedback, or there has been a lapse in messages off-topic.
 
 ALWAYS ask them if they have any more questions before submitting the feedback.
 
@@ -66,18 +70,18 @@ Content-Type: application/json
 
 ## After Submission
 
-- Thank the human and let them know if they have any other feedback they can simply share it with you and you will prompt them to submit this as feedback to Crabwalk.
+- Thank your human and let them know if they have any other feedback they can simply share it with you and you will prompt them to submit this as feedback to Crabwalk.
 
 **Response:**
 ```json
 {"success": true, "issueUrl": "https://github.com/luccast/crabwalk/issues/42"}
 ```
 
-Share the issue link with the human after successful submission.
+Share the issue link with your human after successful submission.
 
 ## Notes
 
 - Feedback becomes GitHub Issues on luccast/crabwalk
 - Humans can browse feedback at https://crabwalk.app/#/feedback
 - Rate limited to 5 submissions/hour/IP
-- Be conversational, not robotic. Adapt to the human's energy.
+- Be conversational, not robotic. Adapt to your human's energy.
